@@ -13,18 +13,22 @@ logging.basicConfig(level=logging.DEBUG)
 
 def parse_iperf(logger, filename):
     iperf3_tbl = defaultdict(list)
-    metric_name = 'spartan-novastor'
 
     with open(filename, 'r') as f:
+        # Which iperf test system pair are we in? spartan-nci, spartan-novastor?
+        logfile = os.path.basename(f.name)
+        system = logfile.split("-")[0:2]
+        system = "-".join(system)
+        
         # Convert the iso8601 date into a unix timestamp, assuming the timestamp
         # string is in the same timezone as the machine that's parsing it.
-        timestamp = datetime.strptime(os.path.basename(f.name), "{system}-%Y-%m-%dT%H:%M.log".format(system=metric_name))
+        timestamp = datetime.strptime(logfile, "{system}-%Y-%m-%dT%H:%M.log".format(system=system))
         timestamp = time.mktime(timestamp.timetuple())
 
         # Failed test due to node down, therefore empty log file
         #fsize = os.stat(f.name).st_size
         if os.path.getsize(filename) != 1124:
-            return (metric_name, timestamp, 0, 0, {"metric_type": "histogram", "unit": "bytes"})
+            return (system, timestamp, 0, 0, {"metric_type": "histogram", "unit": "bytes"})
 
         for line in f:
                 header = re.search('\[\sID\]\s(\w+)\s+(\w+)\s+(\w+)\s+(\w+)', line)
@@ -48,7 +52,7 @@ def parse_iperf(logger, filename):
                         iperf3_tbl["bitrate_sender"].append(float(sender.group(4))/1024)
 
     # Return the output as a tuple
-    return (metric_name, timestamp, iperf3_tbl['bitrate_receiver'][0], iperf3_tbl['bitrate_sender'][0],
+    return (system, timestamp, iperf3_tbl['bitrate_receiver'][0], iperf3_tbl['bitrate_sender'][0],
                                                                         {"metric_type": "histogram",
                                                                          "unit": "bytes"})
 
@@ -62,12 +66,12 @@ def test():
 
     # Validate the results
     assert expected == actual, "%s != %s" % (expected, actual)
-    print 'test passes'
+    print('test passes')
 
 
 if __name__ == '__main__':
     # For local testing, callable as "python /path/to/parsers.py"
     #test()
-    for filename in iglob('iperf-runs/*.log'):
+    for filename in iglob('data/*.log'):
         data = parse_iperf(logging, filename)
         print(json.dumps(data))
