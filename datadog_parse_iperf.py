@@ -9,6 +9,8 @@ from datetime import datetime
 from collections import defaultdict
 import logging
 
+import pandas as pd
+
 logging.basicConfig(level=logging.DEBUG)
 
 def parse_iperf(logger, filename):
@@ -58,7 +60,7 @@ def parse_iperf(logger, filename):
 
 def test():
     # Set up the test input and expected output
-    test_input = "spartan-novastor-2017-11-29T10:45.log"
+    test_input = "data/spartan-novastor-2017-11-29T10:45.log"
     expected = ("spartan-novastor", 1511912700.0, 0.2001953125, 0.208984375, {"metric_type": "histogram", "unit": "bytes"})
 
     # Call the parse function
@@ -72,6 +74,9 @@ def test():
 if __name__ == '__main__':
     # For local testing, callable as "python /path/to/parsers.py"
     #test()
+
+    print("machine, timestamp, ingress, egress")
     for filename in iglob('data/*.log'):
         data = parse_iperf(logging, filename)
-        print(json.dumps(data))
+        #print(json.dumps(data))
+        print("{}, {}, {}, {}".format(data[0], data[1], data[2], data[3]))
