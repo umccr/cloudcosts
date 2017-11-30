@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import os
 import re
@@ -9,49 +9,47 @@ from datetime import datetime
 from collections import defaultdict
 import logging
 
-import pandas as pd
-
 logging.basicConfig(level=logging.DEBUG)
 
-def parse_iperf(logger, filename):
+def parse_iperf(logger, line_log):
     iperf3_tbl = defaultdict(list)
 
-    with open(filename, 'r') as f:
-        # Which iperf test system pair are we in? spartan-nci, spartan-novastor?
-        logfile = os.path.basename(f.name)
-        system = logfile.split("-")[0:2]
-        system = "-".join(system)
-        
-        # Convert the iso8601 date into a unix timestamp, assuming the timestamp
-        # string is in the same timezone as the machine that's parsing it.
-        timestamp = datetime.strptime(logfile, "{system}-%Y-%m-%dT%H:%M.log".format(system=system))
-        timestamp = time.mktime(timestamp.timetuple())
+    logdate, payload = a.split('.log:')
+    logname = logdate[0].split('-')
+    # ['logs/spartan', 'nci', '2017', '11', '30T12:46']
 
-        # Failed test due to node down, therefore empty log file
-        #fsize = os.stat(f.name).st_size
-        if os.path.getsize(filename) != 1124:
-            return (system, timestamp, 0, 0, {"metric_type": "histogram", "unit": "bytes"})
+    # Convert the iso8601 date into a unix timestamp, assuming the timestamp
+    # string is in the same timezone as the machine that's parsing it.
+    date = "{year}-{month}-{day_time}".format(year=logname[2], month=logname[3], day_time=logname[4])
+    timestamp = datetime.strptime(date, "%Y-%m-%dT%H:%M")
+    timestamp = time.mktime(timestamp.timetuple())
 
-        for line in f:
-                header = re.search('\[\sID\]\s(\w+)\s+(\w+)\s+(\w+)\s+(\w+)', line)
-                info = re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+\d+\s+[0-9]*\.?[0-9]+\s+([M|G|K]Bytes)', line)
-                receiver = re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+receiver', line)
-                sender =   re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+\d+\s+sender', line)
+    # Failed test due to node down, therefore empty log file
+    #fsize = os.stat(f.name).st_size
+    if os.path.getsize(filename) != 1124:
+        return (system, timestamp, 0, 0, {"metric_type": "histogram", "unit": "bytes"})
 
-                if header:
-                    pass
-                if info:
-                    pass
-                if receiver:
-                    if receiver.group(3) == 'GBytes':
-                        iperf3_tbl["bitrate_receiver"].append(float(receiver.group(4)))
-                    else:
-                        iperf3_tbl["bitrate_receiver"].append(float(receiver.group(4))/1024)
-                if sender:
-                    if sender.group(3) == 'GBytes':
-                        iperf3_tbl["bitrate_sender"].append(float(sender.group(4)))
-                    else:
-                        iperf3_tbl["bitrate_sender"].append(float(sender.group(4))/1024)
+    line = payload
+
+    header = re.search('\[\sID\]\s(\w+)\s+(\w+)\s+(\w+)\s+(\w+)', line)
+    info = re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+\d+\s+[0-9]*\.?[0-9]+\s+([M|G|K]Bytes)', line)
+    receiver = re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+receiver', line)
+    sender =   re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+\d+\s+sender', line)
+
+    if header:
+        pass
+    if info:
+        pass
+    if receiver:
+        if receiver.group(3) == 'GBytes':
+            iperf3_tbl["bitrate_receiver"].append(float(receiver.group(4)))
+        else:
+            iperf3_tbl["bitrate_receiver"].append(float(receiver.group(4))/1024)
+    if sender:
+        if sender.group(3) == 'GBytes':
+            iperf3_tbl["bitrate_sender"].append(float(sender.group(4)))
+        else:
+            iperf3_tbl["bitrate_sender"].append(float(sender.group(4))/1024)
 
     # Return the output as a tuple
     return (system, timestamp, iperf3_tbl['bitrate_receiver'][0], iperf3_tbl['bitrate_sender'][0],
@@ -75,8 +73,8 @@ if __name__ == '__main__':
     # For local testing, callable as "python /path/to/parsers.py"
     #test()
 
-    print("machine, timestamp, ingress, egress")
-    for filename in iglob('data/*.log'):
+    #print("machine, timestamp, ingress, egress")
+    for filename in iglob('/home/ubuntu/logs/spartan-novastor-2017-11-30T11:05.log'):
         data = parse_iperf(logging, filename)
-        #print(json.dumps(data))
-        print("{}, {}, {}, {}".format(data[0], data[1], data[2], data[3]))
+        print(json.dumps(data))
+        #print("{}, {}, {}, {}".format(data[0], data[1], data[2], data[3]))
