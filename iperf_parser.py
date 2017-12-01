@@ -53,7 +53,7 @@ def iperf_parser(logger, line):
 def test():
     # Set up the test input and expected output
     test_input = "logs/spartan-nci-2017-11-30T20:14.log:[  5]   0.00-10.10  sec   350 MBytes   291 Mbits/sec                  receiver"
-    expected = ('hpc_networking', 1512033240.0, 0.2841796875, {'metric_type': 'histogram', 'unit': 'bytes'})
+    expected = ('hpc_networking', 1512033240.0, 0.2841796875, {'metric_type': 'gauge', 'unit': 'bytes'})
 
     # Call the parse function
     actual = iperf_parser(logging, test_input)
