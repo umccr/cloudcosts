@@ -11,24 +11,15 @@ import logging
 
 logging.basicConfig(level=logging.DEBUG)
 
-def iperf_parser(logger, line):
+def iperf_parser(logger, line, timestamp):
     iperf3_tbl = defaultdict(list)
 
-    logdate, payload = line.split('.log:')
-    logname = logdate.split('-')
-
-    # Convert the iso8601 date into a unix timestamp, assuming the timestamp
-    # string is in the same timezone as the machine that's parsing it.
-    date = "{year}-{month}-{day_time}".format(year=logname[2], month=logname[3], day_time=logname[4])
-    timestamp = datetime.strptime(date, "%Y-%m-%dT%H:%M")
-    timestamp = time.mktime(timestamp.timetuple())
-    
-    line = payload
+    print(line)
 
     header = re.search('\[\sID\]\s(\w+)\s+(\w+)\s+(\w+)\s+(\w+)', line)
     info = re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+\d+\s+[0-9]*\.?[0-9]+\s+([M|G|K]Bytes)', line)
     receiver = re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+receiver', line)
-    sender =   re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+\d+\s+sender', line)
+    sender = re.search('\[\s+5\]\s+([0-9]*\.?[0-9]+-[0-9]*\.?[0-9]+)\s+sec\s+([0-9]*\.?[0-9]+)\s([M|G|K]Bytes)\s+([0-9]*\.?[0-9]+)\s+(\w+/sec)\s+\d+\s+sender', line)
 
     if header:
         pass
@@ -46,9 +37,42 @@ def iperf_parser(logger, line):
     #        iperf3_tbl["bitrate_sender"].append(float(sender.group(4))/1024)
 
     # Return the output as a tuple
-    return ("hpc_networking", timestamp, iperf3_tbl['bitrate_receiver'][0], 
-                                                                        {"metric_type": "gauge",
-                                                                         "unit": "bytes"})
+    print(iperf3_tbl['bitrate_receiver'])
+    return timestamp, iperf3_tbl['bitrate_receiver']
+    # return ("hpc_networking", timestamp, 
+    #          iperf3_tbl['bitrate_receiver'][0], 
+    #          {"metric_type": "gauge",
+    #           "unit": "bytes"})
+
+def filename_parse(filename):
+    line = filename.readline()
+    logdate, payload = line.split('.log:')
+    logname = logdate.split('-')
+
+    # Convert the iso8601 date into a unix timestamp, assuming the timestamp
+    # string is in the same timezone as the machine that's parsing it.
+    if len(logname) < 6:
+        date = "{year}-{month}-{day_time}".format(year=logname[2], month=logname[3], day_time=logname[4])
+    else:
+        date = "{year}-{month}-{day_time}".format(year=logname[3], month=logname[4], day_time=logname[5])
+    
+    timestamp = datetime.strptime(date, "%Y-%m-%dT%H:%M")
+    timestamp = time.mktime(timestamp.timetuple())
+
+    line = payload
+
+    return str(timestamp), str(line)
+
+
+def csv_output(filename):
+    # XXX: make make sure you are parsing all machine logs:
+    #      nci-spartan-novastor, nci-spartan, etc...
+    print("machine, timestamp, ingress, egress")
+
+    with open(filename, 'r') as f:
+        line, timestamp = filename_parse(f)
+        data = iperf_parser(logging, line, timestamp)
+        print("{}, {}, {}, {}".format(data[0], data[1], data[2], data[3]))
 
 def test():
     # Set up the test input and expected output
@@ -65,10 +89,5 @@ def test():
 
 if __name__ == '__main__':
     # For local testing, callable as "python /path/to/parsers.py"
-    test()
-
-    #print("machine, timestamp, ingress, egress")
-    #for filename in iglob('/home/ubuntu/logs/spartan-novastor-2017-11-30T11:05.log'):
-    #    data = parse_iperf(logging, filename)
-    #    print(json.dumps(data))
-        #print("{}, {}, {}, {}".format(data[0], data[1], data[2], data[3]))
+    #test()
+    csv_output('hpc_networks.log')
